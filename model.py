@@ -1,7 +1,7 @@
 from keras.models import Sequential
 from keras.preprocessing.image import ImageDataGenerator
 from keras.layers import Conv2D, UpSampling2D, InputLayer, BatchNormalization
-from keras.callbacks import TensorBoard
+from keras.models import load_model
 
 import cv2
 import numpy as np
@@ -9,16 +9,15 @@ import numpy as np
 from utils import rgb_to_lab, lab_to_rgb
 
 import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # disable GPU
 
 dataset_path = "./data/face_images/"
 augmented_path = "./data/augmented_data/"
 models_path = "./models/"
+results_path = "./results/"
 
 def load_dataset(dataset_path):
 	X = []
 	for filename in os.listdir(dataset_path):
-		# img = rgb_to_lab(cv2.imread(dataset_path+filename))
 		img = cv2.imread(dataset_path+filename)
 		X.append(img)
 	return np.array(X)
@@ -32,7 +31,7 @@ datagen = ImageDataGenerator(
 			horizontal_flip=True
 		)
 
-def augment(batches):
+def augment(batches, activation_last):
 	batch_num = 0
 	while True:
 		batch = next(batches)
@@ -44,11 +43,14 @@ def augment(batches):
 			augmented_batch[i] = rgb_to_lab(image.astype(np.uint8))
 		batch_num += 1
 		X_batch = augmented_batch[:,:,:,:1]
-		Y_batch = augmented_batch[:,:,:,1:]
+		if activation_last == 'relu':
+			Y_batch = augmented_batch[:,:,:,1:]
+		else:
+			Y_batch = 2*augmented_batch[:,:,:,1:]-1
 		yield (X_batch, Y_batch)
 
 
-def define_model():
+def define_model(activation_last):
 	model = Sequential()
 	model.add(InputLayer(input_shape=(128, 128, 1)))
 	model.add(Conv2D(128, (3, 3), activation='relu', padding='same'))
@@ -62,38 +64,58 @@ def define_model():
 	model.add(BatchNormalization())
 	model.add(Conv2D(32, (3, 3), activation='relu', padding='same'))
 	model.add(BatchNormalization())
-	model.add(Conv2D(2, (3, 3), activation='tanh', padding='same'))
+	model.add(Conv2D(2, (3, 3), activation=activation_last, padding='same'))
 	model.add(UpSampling2D((2, 2)))
 	model.compile(optimizer='rmsprop', loss='mse')
-	model.summary()
 	return model
+
+def predict(x, dir_name):
+	output = model.predict(x)
+	if activation_last == 'tanh':
+		output = (output+1)/2
+	for i in range(len(output)):
+		cur = np.zeros((128, 128, 3))
+		cur[:,:,0] = x[i][:,:,0]
+		cur[:,:,1:] = output[i]
+		cv2.imwrite(results_path+activation_last+"/"+dir_name+"/"+str(i)+".jpg", lab_to_rgb(cur))
+
+def get_results():
+	test_lab = np.zeros((test.shape[0], 128, 128, 3))
+	train_lab = np.zeros((test.shape[0], 128, 128, 3))
+	
+	for i, image in enumerate(test):
+		train_lab[i] = rgb_to_lab(image)
+
+	for i, image in enumerate(test):
+		test_lab[i] = rgb_to_lab(image)
+
+	Xtrain_lab = train_lab[:,:,:,:1]
+	Ytrain_lab = train_lab[:,:,:,1:]
+
+	Xtest_lab = test_lab[:,:,:,:1]
+	Ytest_lab = test_lab[:,:,:,1:]
+	
+	print("Loss on test set of 75 images")
+	print(model.evaluate(Xtest_lab, Ytest_lab))
+	predict(Xtest_lab, 'test')
+	predict(Xtrain_lab, 'train')
+
+# main
+print("Choose an Activation Function for last layer\n1. Relu\n2. Tanh\n")
+activation_last = {'1': 'relu', '2': 'tanh'}[input()]
 
 X = load_dataset(dataset_path)
 train, test = train_test_split(X, 0.9)
 
-batch_size = 5
-train_batches = datagen.flow(train, batch_size=batch_size)
-augmented_batches = augment(train_batches)
+if not os.path.exists(models_path+activation_last+'.h5'):
+	batch_size = 5
+	train_batches = datagen.flow(train, batch_size=batch_size)
+	augmented_batches = augment(train_batches, activation_last)
 
-model = define_model()
-# model.fit(image_a_b_gen(batch_size), callbacks=[tensorboard], epochs=1, steps_per_epoch=10)
-model.fit(augmented_batches, epochs=50, steps_per_epoch=len(train)//batch_size) # augmented size = steps per epoch * batch size
-model.save('./models/model.h5')
-
-test_lab = np.zeros((test.shape[0], 128, 128, 3))
-print('test shape', test.shape)
-for i, image in enumerate(test):
-	test_lab[i] = rgb_to_lab(image)
-Xtest_lab = test_lab[:,:,:,:1]
-Ytest_lab = test_lab[:,:,:,1:]
-print(model.evaluate(Xtest_lab, Ytest_lab))
-
-# Test model
-output = model.predict(Xtest_lab)
-
-# # Output colorizations
-for i in range(len(output)):
-	cur = np.zeros((128, 128, 3))
-	cur[:,:,0] = Xtest_lab[i][:,:,0]
-	cur[:,:,1:] = output[i]
-	cv2.imwrite("./results/img_"+str(i)+".jpg", lab_to_rgb(cur))
+	model = define_model(activation_last)
+	model.fit(augmented_batches, epochs=1, steps_per_epoch=len(train)//batch_size) # augmented size = steps per epoch * batch size
+	model.save(models_path+activation_last+'.h5')
+	get_results()
+else:
+	model = load_model(models_path+activation_last+'.h5')
+	get_results()
