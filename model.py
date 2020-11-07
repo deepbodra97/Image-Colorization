@@ -71,15 +71,14 @@ def define_model():
 X = load_dataset(dataset_path)
 train, test = train_test_split(X, 0.9)
 
-batch_size = 10
+batch_size = 5
 train_batches = datagen.flow(train, batch_size=batch_size)
 augmented_batches = augment(train_batches)
 
 model = define_model()
 # model.fit(image_a_b_gen(batch_size), callbacks=[tensorboard], epochs=1, steps_per_epoch=10)
-model.fit(augmented_batches, epochs=50, steps_per_epoch=10)
+model.fit(augmented_batches, epochs=50, steps_per_epoch=len(train)//batch_size) # augmented size = steps per epoch * batch size
 model.save('./models/model.h5')
-
 
 test_lab = np.zeros((test.shape[0], 128, 128, 3))
 print('test shape', test.shape)
@@ -88,13 +87,6 @@ for i, image in enumerate(test):
 Xtest_lab = test_lab[:,:,:,:1]
 Ytest_lab = test_lab[:,:,:,1:]
 print(model.evaluate(Xtest_lab, Ytest_lab))
-
-# color_me = []
-# for filename in os.listdir('../Full-version/Test/'):
-#     color_me.append(img_to_array(load_img('../Full-version/Test/'+filename)))
-# color_me = np.array(color_me, dtype=float)
-# color_me = rgb2lab(1.0/255*color_me)[:,:,:,0]
-# color_me = color_me.reshape(color_me.shape+(1,))
 
 # Test model
 output = model.predict(Xtest_lab)
