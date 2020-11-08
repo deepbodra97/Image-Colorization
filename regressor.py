@@ -16,21 +16,21 @@ models_path = "./models/"
 results_path = "./results/"
 
 def load_dataset(dataset_path):
-	X = []
+	X = [] # 750 images
 	for filename in os.listdir(dataset_path):
 		img = cv2.imread(dataset_path+filename)
 		X.append(img)
 	return np.array(X)
 
+# Split into train and test sets
+def train_test_split(X, split=0.9):
+	split_idx = int(split*len(X))
+	return X[:split_idx], X[split_idx:]
+
 datagen = ImageDataGenerator(
 			zoom_range=0.2,
 			horizontal_flip=True
 		)
-
-# Split into train and test sets
-def train_test_split(X, split):
-	split_idx = int(split*len(X))
-	return X[:split_idx], X[split_idx:]
 
 # Scale pixel values
 def augment(batches):
@@ -82,7 +82,7 @@ def define_model():
 
 # Predict
 def predict(x, dir_name):
-	output = 255*model.predict(x)-128
+	output = model.predict(x)
 	for mean_chrominance in output:
 		print(mean_chrominance.ravel())
 		

@@ -50,26 +50,28 @@ def augment(batches, activation_last):
 		if activation_last == 'relu':
 			Y_batch = augmented_batch[:,:,:,1:]
 		else:
-			Y_batch = 2*augmented_batch[:,:,:,1:]-1
+			Y_batch = 2*augmented_batch[:,:,:,1:]-1 # [0,1]->[-1,1]
 		yield (X_batch, Y_batch)
 
 # Colorizer
 def define_model(activation_last):
 	model = Sequential()
 	model.add(InputLayer(input_shape=(128, 128, 1)))
+	# Downsampling
 	model.add(Conv2D(128, (3, 3), activation='relu', padding='same'))
 	model.add(BatchNormalization())
-	model.add(Conv2D(64, (3, 3), activation='relu', padding='same', strides=2))
+	model.add(Conv2D(64, (3, 3), activation='relu', padding='same', strides=2)) # 128x128 to 64x64
 	model.add(BatchNormalization())
-	model.add(Conv2D(32, (3, 3), activation='relu', padding='same', strides=2))
+	model.add(Conv2D(32, (3, 3), activation='relu', padding='same', strides=2)) # 64x64 to 32x32
 	model.add(BatchNormalization())
-	model.add(UpSampling2D((2, 2)))
-	model.add(Conv2D(64, (3, 3), activation='relu', padding='same'))
+	# Upsampling
+	model.add(UpSampling2D((2, 2))) # 32x32 to 64x64
+	model.add(Conv2D(64, (3, 3), activation='relu', padding='same')) # stays the same
 	model.add(BatchNormalization())
-	model.add(Conv2D(32, (3, 3), activation='relu', padding='same'))
+	model.add(Conv2D(32, (3, 3), activation='relu', padding='same')) # stays the same
 	model.add(BatchNormalization())
-	model.add(Conv2D(2, (3, 3), activation=activation_last, padding='same'))
-	model.add(UpSampling2D((2, 2)))
+	model.add(Conv2D(2, (3, 3), activation=activation_last, padding='same')) # stays the same
+	model.add(UpSampling2D((2, 2)))  # 64x64 to 128x128
 	model.summary()
 	model.compile(optimizer='rmsprop', loss='mse')
 	return model
@@ -120,7 +122,7 @@ if not os.path.exists(models_path+activation_last+'.h5'):
 	augmented_batches = augment(train_batches, activation_last)
 
 	model = define_model(activation_last)
-	model.fit(augmented_batches, epochs=30, steps_per_epoch=len(train)//batch_size) # augmented size = steps per epoch * batch size
+	model.fit(augmented_batches, epochs=50, steps_per_epoch=len(train)//batch_size) # augmented size = steps per epoch * batch size
 	model.save(models_path+activation_last+'.h5')
 	get_results()
 else:
