@@ -22,15 +22,17 @@ def load_dataset(dataset_path):
 		X.append(img)
 	return np.array(X)
 
-def train_test_split(X, split):
-	split_idx = int(split*len(X))
-	return X[:split_idx], X[split_idx:]
-
 datagen = ImageDataGenerator(
 			zoom_range=0.2,
 			horizontal_flip=True
 		)
 
+# Split into train and test sets
+def train_test_split(X, split):
+	split_idx = int(split*len(X))
+	return X[:split_idx], X[split_idx:]
+
+# Scale pixel values
 def augment(batches):
 	batch_num = 0
 	while True:
@@ -49,33 +51,42 @@ def augment(batches):
 		batch_num += 1
 		yield (X_batch, Y_batch)
 
-
+# Regressor
 def define_model():
 	model = Sequential()
 	model.add(InputLayer(input_shape=(128, 128, 1)))
 	model.add(Conv2D(3, (2, 2), activation='relu', padding='same'))
 	model.add(MaxPooling2D((2,2)))
+	
 	model.add(Conv2D(3, (2, 2), activation='relu', padding='same'))
 	model.add(MaxPooling2D((2,2)))
+	
 	model.add(Conv2D(3, (2, 2), activation='relu', padding='same'))
 	model.add(MaxPooling2D((2,2)))
+	
 	model.add(Conv2D(3, (2, 2), activation='relu', padding='same'))
 	model.add(MaxPooling2D((2,2)))
+	
 	model.add(Conv2D(3, (2, 2), activation='relu', padding='same'))
 	model.add(MaxPooling2D((2,2)))
+	
 	model.add(Conv2D(3, (2, 2), activation='relu', padding='same'))
 	model.add(MaxPooling2D((2,2)))
+	
 	model.add(Conv2D(2, (2, 2), activation='relu', padding='same'))
 	model.add(MaxPooling2D((2,2)))	
+	
 	model.summary()
 	model.compile(optimizer='rmsprop', loss='mse')
 	return model
 
+# Predict
 def predict(x, dir_name):
 	output = 255*model.predict(x)-128
 	for mean_chrominance in output:
 		print(mean_chrominance.ravel())
 		
+# Regress on test data
 def get_results():
 	Xtest_lab = np.zeros((test.shape[0], 128, 128, 1))
 	Ytest_lab = np.zeros((test.shape[0], 2, 1))
