@@ -31,7 +31,7 @@ datagen = ImageDataGenerator(
 			horizontal_flip=True
 		)
 
-def augment(batches, activation_last):
+def augment(batches):
 	batch_num = 0
 	while True:
 		batch = next(batches)
@@ -44,13 +44,14 @@ def augment(batches, activation_last):
 			lab_image = rgb_to_lab(image.astype(np.uint8))
 			l, a, b = lab_image[:,:,:1], lab_image[:,:,1:2], lab_image[:,:,2:3]
 			X_batch[i] = l
+			print(np.mean(a), np.mean(b))
 			Y_batch[i,0] = np.mean(a)
 			Y_batch[i,1] = np.mean(b)
 		batch_num += 1
 		yield (X_batch, Y_batch)
 
 
-def define_model(activation_last):
+def define_model():
 	model = Sequential()
 	model.add(InputLayer(input_shape=(128, 128, 1)))
 	model.add(Conv2D(3, (2, 2), activation='relu', padding='same'))
@@ -81,40 +82,40 @@ def predict(x, dir_name):
 		# cv2.imwrite(results_path+activation_last+"/"+dir_name+"/"+str(i)+".jpg", lab_to_rgb(cur))
 
 def get_results():
-	test_lab = np.zeros((test.shape[0], 128, 128, 1))
-	train_lab = np.zeros((test.shape[0], 128, 128, 1))
-	
+	# Xtrain_lab = np.zeros((train[:75].shape[0], 128, 128, 1))
+	# Ytrain_lab = np.zeros((test.shape[0], 2, 1))
+	# for i, image in enumerate(train[:75]):
+	# 	lab_image = rgb_to_lab(image.astype(np.uint8))
+	# 	l, a, b = lab_image[:,:,:1], lab_image[:,:,1:2], lab_image[:,:,2:3]
+	# 	Xtrain_lab[i] = l
+	# 	Ytrain_lab[i,0] = np.mean(a)
+	# 	Ytrain_lab[i,1] = np.mean(b)
+
+	Xtest_lab = np.zeros((test.shape[0], 128, 128, 1))
+	Ytest_lab = np.zeros((test.shape[0], 2, 1))
 	for i, image in enumerate(test):
-		train_lab[i] = rgb_to_lab(image)
+		lab_image = rgb_to_lab(image.astype(np.uint8))
+		l, a, b = lab_image[:,:,:1], lab_image[:,:,1:2], lab_image[:,:,2:3]
+		Xtest_lab[i] = l
+		Ytest_lab[i,0] = np.mean(a)
+		Ytest_lab[i,1] = np.mean(b)
 
-	for i, image in enumerate(test):
-		test_lab[i] = rgb_to_lab(image)
-
-	Xtrain_lab = train_lab[:,:,:,:1]
-	Ytrain_lab = train_lab[:,:,:,1:]
-
-	Xtest_lab = test_lab[:,:,:,:1]
-	Ytest_lab = test_lab[:,:,:,1:]
-	
-	print("Loss on test set of 75 images")
-	print(model.evaluate(Xtest_lab, Ytest_lab))
+	# print("Loss on train set of 75 images", model.evaluate(Xtrain_lab, Ytrain_lab))
+	print("Loss on test set of 75 images", model.evaluate(Xtest_lab, Ytest_lab))
 	predict(Xtest_lab, 'test')
-	predict(Xtrain_lab, 'train')
+	# predict(Xtrain_lab, 'train')
 
 # main
-print("Choose an Activation Function for last layer\n1. Relu\n2. Tanh\n")
-activation_last = {'1': 'relu', '2': 'tanh'}[input()]
-
 X = load_dataset(dataset_path)
 train, test = train_test_split(X, 0.9)
 
 if not os.path.exists(models_path+'regressor.h5'):
 	batch_size = 5
 	train_batches = datagen.flow(train, batch_size=batch_size)
-	augmented_batches = augment(train_batches, activation_last)
+	augmented_batches = augment(train_batches)
 
-	model = define_model(activation_last)
-	model.fit(augmented_batches, epochs=10, steps_per_epoch=len(train)//batch_size) # augmented size = steps per epoch * batch size
+	model = define_model()
+	model.fit(augmented_batches, epochs=5, steps_per_epoch=len(train)//batch_size) # augmented size = steps per epoch * batch size
 	model.save(models_path+'regressor.h5')
 	get_results()
 else:
