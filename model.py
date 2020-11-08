@@ -83,7 +83,7 @@ def get_results():
 	test_lab = np.zeros((test.shape[0], 128, 128, 3))
 	train_lab = np.zeros((test.shape[0], 128, 128, 3))
 	
-	for i, image in enumerate(test):
+	for i, image in enumerate(train[:75]):
 		train_lab[i] = rgb_to_lab(image)
 
 	for i, image in enumerate(test):
