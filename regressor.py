@@ -44,7 +44,6 @@ def augment(batches):
 			lab_image = rgb_to_lab(image.astype(np.uint8))
 			l, a, b = lab_image[:,:,:1], lab_image[:,:,1:2], lab_image[:,:,2:3]
 			X_batch[i] = l
-			print(np.mean(a), np.mean(b))
 			Y_batch[i,0] = np.mean(a)
 			Y_batch[i,1] = np.mean(b)
 		batch_num += 1
@@ -73,24 +72,11 @@ def define_model():
 	return model
 
 def predict(x, dir_name):
-	output = model.predict(x)
-	for i in range(len(output)):
-		print(output)
-		# cur = np.zeros((128, 128, 3))
-		# cur[:,:,0] = x[i][:,:,0]
-		# cur[:,:,1:] = output[i]
-		# cv2.imwrite(results_path+activation_last+"/"+dir_name+"/"+str(i)+".jpg", lab_to_rgb(cur))
-
+	output = 255*model.predict(x)-128
+	for mean_chrominance in output:
+		print(mean_chrominance.ravel())
+		
 def get_results():
-	# Xtrain_lab = np.zeros((train[:75].shape[0], 128, 128, 1))
-	# Ytrain_lab = np.zeros((test.shape[0], 2, 1))
-	# for i, image in enumerate(train[:75]):
-	# 	lab_image = rgb_to_lab(image.astype(np.uint8))
-	# 	l, a, b = lab_image[:,:,:1], lab_image[:,:,1:2], lab_image[:,:,2:3]
-	# 	Xtrain_lab[i] = l
-	# 	Ytrain_lab[i,0] = np.mean(a)
-	# 	Ytrain_lab[i,1] = np.mean(b)
-
 	Xtest_lab = np.zeros((test.shape[0], 128, 128, 1))
 	Ytest_lab = np.zeros((test.shape[0], 2, 1))
 	for i, image in enumerate(test):
@@ -100,10 +86,8 @@ def get_results():
 		Ytest_lab[i,0] = np.mean(a)
 		Ytest_lab[i,1] = np.mean(b)
 
-	# print("Loss on train set of 75 images", model.evaluate(Xtrain_lab, Ytrain_lab))
 	print("Loss on test set of 75 images", model.evaluate(Xtest_lab, Ytest_lab))
 	predict(Xtest_lab, 'test')
-	# predict(Xtrain_lab, 'train')
 
 # main
 X = load_dataset(dataset_path)
